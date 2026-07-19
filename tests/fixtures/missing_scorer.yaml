@@ -1,0 +1,6 @@
+name: translation-quality
+system_prompt: "You are a translator."
+model: claude-haiku-4-5-20251001
+cases:
+  - user: "Hello"
+    expected: "Bonjour"
