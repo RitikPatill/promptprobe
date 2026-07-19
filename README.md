@@ -2,6 +2,17 @@
 
 LLM prompt regression testing — define test suites in YAML, run them against Claude or GPT, catch regressions before they reach production.
 
+## What works (M3)
+
+- `LLMRunner` dispatches to Anthropic (`claude*`) or OpenAI (`gpt*`) based on model name prefix
+- Three scorers fully implemented and unit-tested (no real API calls in tests):
+  - `exact` — case-insensitive full-string match
+  - `contains` — all comma-separated keywords must appear in the response
+  - `llm_judge` — secondary Claude call rates 1–5 against a rubric; pass if ≥ 3
+- `write_report()` saves `results/run_<timestamp>.json` with suite summary and per-case details
+- `promptprobe eval <suite.yaml>` now calls a real LLM, scores each case, writes a JSON report, and prints a summary
+- 12 unit tests across `test_scorers.py` and `test_runner.py`; all pass with mocked LLM clients
+
 ## What works (M2)
 
 - YAML test-suite schema defined with `Suite` and `Case` dataclasses in `src/promptprobe/schema.py`
@@ -38,9 +49,6 @@ Run from the repo root. Requires Python 3.10+.
 
 ## Quick start
 
-<!-- TODO: remove this note once eval is implemented -->
-> The CLI entry point is installed but `eval` is not yet implemented. The example below shows the intended interface.
-
 Create a test suite YAML file (e.g. `suites/greeting.yaml`):
 
 ```yaml
@@ -74,15 +82,11 @@ promptprobe eval suites/greeting.yaml
 
 ## Scoring
 
-<!-- TODO: update once scorers are implemented -->
-
 - **`exact`** — Case-insensitive full-string match between the LLM response and the expected value.
-- **`contains`** — Checks that all expected keywords are present somewhere in the response.
-- **`llm_judge`** — A secondary Claude call rates the response 1–5 against a rubric and returns pass/fail above a configurable threshold.
+- **`contains`** — All comma-separated tokens in `expected` must appear in the response (case-insensitive). E.g. `expected: "bonjour, monde"` checks for both words.
+- **`llm_judge`** — A secondary Claude call rates the response 1–5 against a rubric; score ≥ 3 is a pass. Set `scorer: llm_judge` and write a natural-language rubric in each `expected` field.
 
 ## CI integration
-
-<!-- TODO: update once eval writes result files -->
 
 Every `promptprobe eval` run writes a timestamped JSON artefact to `results/run_<timestamp>.json`. Store these as CI artefacts and use `promptprobe diff run_a.json run_b.json` to detect which cases flipped between pass and fail across prompt versions. The `results/` directory is excluded from version control by default.
 
@@ -95,10 +99,15 @@ promptprobe/
 │       ├── __init__.py     # package version
 │       ├── __main__.py     # python -m promptprobe entry point
 │       ├── cli.py          # Typer app — eval / diff / list subcommands
-│       └── schema.py       # Suite/Case dataclasses + load_suite() + SuiteValidationError
+│       ├── schema.py       # Suite/Case dataclasses + load_suite() + SuiteValidationError
+│       ├── runner.py       # LLMRunner — dispatches to Anthropic or OpenAI, returns RunResult list
+│       ├── scorers.py      # score_exact, score_contains, score_llm_judge
+│       └── report.py       # write_report() — saves results/run_<timestamp>.json
 ├── tests/
 │   ├── __init__.py
 │   ├── test_schema.py      # unit tests for schema loader (no network calls)
+│   ├── test_scorers.py     # unit tests for all three scorers (mocked LLM)
+│   ├── test_runner.py      # dispatch and run() integration tests (mocked LLM)
 │   └── fixtures/           # YAML fixtures for tests
 ├── pyproject.toml          # build config and dependency declarations
 ├── requirements.txt        # pinned dependencies (includes pytest)
@@ -106,15 +115,13 @@ promptprobe/
 └── .gitignore
 ```
 
-<!-- TODO: extend with runner.py, scorers/, results/ once implemented -->
-
 ## Roadmap
 
 - **M1** ✓ — package scaffold, CLI entry point, subcommand stubs
 - **M2** ✓ — YAML schema (`Suite`/`Case` dataclasses), `load_suite()` parser, `SuiteValidationError`, unit tests
-- **M3** — LLM runner (Anthropic + OpenAI), `exact` and `contains` scorers, JSON result writer
+- **M3** ✓ — LLM runner (Anthropic + OpenAI), all three scorers, JSON result writer, `eval` wired end-to-end
 - **M4** — `diff` subcommand, regression detection, Rich terminal table output
-- **M5** — `llm_judge` scorer, configurable thresholds, CI exit codes
+- **M5** — configurable thresholds, CI exit codes
 - **M6** — example suites, full test coverage, PyPI release
 
 ## License
