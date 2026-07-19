@@ -2,6 +2,16 @@
 
 LLM prompt regression testing — define test suites in YAML, run them against Claude or GPT, catch regressions before they reach production.
 
+## What works (M2)
+
+- YAML test-suite schema defined with `Suite` and `Case` dataclasses in `src/promptprobe/schema.py`
+- `load_suite(path)` parses and validates YAML files with clear error messages for every invalid state
+- Three scorers recognised: `exact`, `contains`, `llm_judge` — validation enforced at load time
+- `SuiteValidationError` raised with human-readable messages pointing to the exact field
+- `temperature` defaults to `0.0`; case `id` is auto-assigned as `case_{n}` when omitted
+- Test suite in `tests/test_schema.py` covers happy path and all major error conditions (no network calls)
+- `pytest==8.2.2` added to `requirements.txt`
+
 ## What works (M1)
 
 - Python package scaffold under `src/promptprobe/` with `pyproject.toml` entry point
@@ -34,10 +44,10 @@ Run from the repo root. Requires Python 3.10+.
 Create a test suite YAML file (e.g. `suites/greeting.yaml`):
 
 ```yaml
-suite: greeting_test
+name: greeting_test
+system_prompt: "You are a friendly assistant. Always greet the user by name."
 model: claude-haiku-4-5-20251001
 temperature: 0.0
-system: "You are a friendly assistant. Always greet the user by name."
 scorer: contains
 cases:
   - user: "My name is Alice."
@@ -84,21 +94,28 @@ promptprobe/
 │   └── promptprobe/
 │       ├── __init__.py     # package version
 │       ├── __main__.py     # python -m promptprobe entry point
-│       └── cli.py          # Typer app — eval / diff / list subcommands
+│       ├── cli.py          # Typer app — eval / diff / list subcommands
+│       └── schema.py       # Suite/Case dataclasses + load_suite() + SuiteValidationError
+├── tests/
+│   ├── __init__.py
+│   ├── test_schema.py      # unit tests for schema loader (no network calls)
+│   └── fixtures/           # YAML fixtures for tests
 ├── pyproject.toml          # build config and dependency declarations
-├── requirements.txt        # pinned dependencies
+├── requirements.txt        # pinned dependencies (includes pytest)
 ├── LICENSE                 # MIT
 └── .gitignore
 ```
 
-<!-- TODO: extend with loader.py, runner.py, scorers/, results/ once implemented -->
+<!-- TODO: extend with runner.py, scorers/, results/ once implemented -->
 
 ## Roadmap
 
-- **M2** — YAML loader, LLM runner (Anthropic + OpenAI), `exact` and `contains` scorers, JSON result writer
-- **M3** — `diff` subcommand, regression detection, Rich terminal table output
-- **M4** — `llm_judge` scorer, configurable thresholds, CI exit codes
-- **M5** — example suites, full test coverage, PyPI release
+- **M1** ✓ — package scaffold, CLI entry point, subcommand stubs
+- **M2** ✓ — YAML schema (`Suite`/`Case` dataclasses), `load_suite()` parser, `SuiteValidationError`, unit tests
+- **M3** — LLM runner (Anthropic + OpenAI), `exact` and `contains` scorers, JSON result writer
+- **M4** — `diff` subcommand, regression detection, Rich terminal table output
+- **M5** — `llm_judge` scorer, configurable thresholds, CI exit codes
+- **M6** — example suites, full test coverage, PyPI release
 
 ## License
 
