@@ -7,6 +7,7 @@ from rich.table import Table
 from .schema import load_suite
 from .runner import LLMRunner
 from .report import write_report
+from .differ import load_report, compare_reports
 
 app = typer.Typer(help="PromptProbe — LLM prompt regression testing.")
 
@@ -73,7 +74,50 @@ def list_runs(results_dir: str = typer.Argument("results")):
 
 
 @app.command()
-def diff(run_a: str = typer.Argument(...), run_b: str = typer.Argument(...)):
-    """Compare two JSON result files (coming in M5)."""
-    typer.echo("diff: not yet implemented — coming in M5", err=True)
-    raise typer.Exit(1)
+def diff(run_a: Path = typer.Argument(...), run_b: Path = typer.Argument(...)):
+    """Compare two JSON result files and highlight regressions."""
+    console = Console()
+    try:
+        report_a = load_report(str(run_a))
+        report_b = load_report(str(run_b))
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    result = compare_reports(report_a, report_b)
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Case ID")
+    table.add_column("User")
+    table.add_column("Run A")
+    table.add_column("Run B")
+    table.add_column("Change")
+
+    for entry in result["regressions"]:
+        table.add_row(
+            entry["case_id"],
+            _trunc(entry["user"]),
+            "[green]PASS[/green]",
+            "[red]FAIL[/red]",
+            "[red]PASS→FAIL[/red]",
+        )
+    for entry in result["fixes"]:
+        table.add_row(
+            entry["case_id"],
+            _trunc(entry["user"]),
+            "[red]FAIL[/red]",
+            "[green]PASS[/green]",
+            "[green]FAIL→PASS[/green]",
+        )
+    for entry in result["unchanged"]:
+        status = "[green]PASS[/green]" if entry["passed"] else "[red]FAIL[/red]"
+        table.add_row(entry["case_id"], "", status, status, "[dim]–[/dim]")
+
+    console.print(table)
+
+    n_reg = len(result["regressions"])
+    n_fix = len(result["fixes"])
+    console.print(f"[bold]{n_reg} regression(s), {n_fix} fix(es)[/bold]")
+
+    if result["regressions"]:
+        raise typer.Exit(1)

@@ -1,0 +1,24 @@
+name: summarisation-quality
+system_prompt: |
+  You are a summarisation assistant. Summarise the user's text in 1-2 sentences.
+model: claude-haiku-4-5-20251001
+scorer: llm_judge
+temperature: 0.2
+cases:
+  - id: news-article
+    user: |
+      Scientists have discovered a new species of deep-sea fish near the Mariana Trench.
+      The fish, named Pseudoliparis belyaevi, can survive at depths exceeding 8,000 metres.
+      Researchers collected samples using remotely operated underwater vehicles.
+    expected: |
+      The summary should mention a new fish species discovered in the deep sea or Mariana Trench.
+      It should be 1-2 sentences and not introduce facts not present in the source.
+  - id: tech-announcement
+    user: |
+      A major technology company announced today that it will release an open-source version
+      of its flagship AI model. The model will be available under the Apache 2.0 licence
+      and can be run locally on consumer hardware with at least 16 GB of RAM.
+    expected: |
+      The summary should mention an open-source AI model release.
+      It should accurately reflect licensing or hardware requirements if mentioned.
+      It should be concise (1-2 sentences).
