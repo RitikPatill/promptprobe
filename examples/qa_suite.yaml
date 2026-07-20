@@ -1,0 +1,16 @@
+name: basic-qa
+system_prompt: |
+  You are a helpful assistant. Answer questions concisely and factually.
+model: claude-haiku-4-5-20251001
+scorer: contains
+temperature: 0.0
+cases:
+  - id: python-creator
+    user: "Who created the Python programming language?"
+    expected: "Guido"
+  - id: boiling-point
+    user: "What is the boiling point of water in Celsius?"
+    expected: "100"
+  - id: planets
+    user: "How many planets are in the solar system?"
+    expected: "8"

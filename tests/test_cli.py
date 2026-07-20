@@ -101,6 +101,52 @@ def test_list_shows_filenames(tmp_path):
     assert "run_002.json" in result.output
 
 
-def test_diff_exits_nonzero():
-    result = runner.invoke(app, ["diff", "a.json", "b.json"])
+import json as _json
+
+
+def _write_report(path, cases):
+    """Write a minimal JSON report to path. cases: list of (case_id, passed)."""
+    data = {
+        "suite": "test",
+        "cases": [
+            {
+                "case_id": cid,
+                "user": f"user {cid}",
+                "expected": "expected",
+                "response": "response",
+                "passed": passed,
+                "score_detail": "",
+            }
+            for cid, passed in cases
+        ],
+    }
+    path.write_text(_json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_diff_no_regressions_exits_zero(tmp_path):
+    a = _write_report(tmp_path / "a.json", [("c1", True), ("c2", False)])
+    b = _write_report(tmp_path / "b.json", [("c1", True), ("c2", True)])
+
+    result = runner.invoke(app, ["diff", str(a), str(b)])
+
+    assert result.exit_code == 0
+    assert "regression(s)" in result.output
+
+
+def test_diff_regressions_exits_one(tmp_path):
+    a = _write_report(tmp_path / "a.json", [("c1", True)])
+    b = _write_report(tmp_path / "b.json", [("c1", False)])
+
+    result = runner.invoke(app, ["diff", str(a), str(b)])
+
+    assert result.exit_code == 1
+    assert "PASS→FAIL" in result.output
+
+
+def test_diff_missing_file_exits_nonzero(tmp_path):
+    real = _write_report(tmp_path / "a.json", [("c1", True)])
+
+    result = runner.invoke(app, ["diff", str(real), str(tmp_path / "missing.json")])
+
     assert result.exit_code == 1
