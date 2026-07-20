@@ -2,6 +2,14 @@
 
 LLM prompt regression testing — define test suites in YAML, run them against Claude or GPT, catch regressions before they reach production.
 
+## What works (M4)
+
+- Rich terminal table output for `eval`: per-case rows with green `PASS` / red `FAIL` chips, truncated user/expected/response columns, and a bold summary line showing score percentage
+- `eval` exits with code 0 when all cases pass, 1 when any fail — CI-friendly
+- `list` subcommand prints sorted JSON filenames from the results directory; exits 1 if the directory doesn't exist
+- `diff` stub exits 1 with an explicit "coming in M5" message
+- 7 new CLI tests in `tests/test_cli.py` using `typer.testing.CliRunner` with mocked LLM calls; 33 total tests, all pass
+
 ## What works (M3)
 
 - `LLMRunner` dispatches to Anthropic (`claude*`) or OpenAI (`gpt*`) based on model name prefix
@@ -108,6 +116,7 @@ promptprobe/
 │   ├── test_schema.py      # unit tests for schema loader (no network calls)
 │   ├── test_scorers.py     # unit tests for all three scorers (mocked LLM)
 │   ├── test_runner.py      # dispatch and run() integration tests (mocked LLM)
+│   ├── test_cli.py         # CLI integration tests using typer.testing.CliRunner (mocked LLM)
 │   └── fixtures/           # YAML fixtures for tests
 ├── pyproject.toml          # build config and dependency declarations
 ├── requirements.txt        # pinned dependencies (includes pytest)
@@ -120,8 +129,8 @@ promptprobe/
 - **M1** ✓ — package scaffold, CLI entry point, subcommand stubs
 - **M2** ✓ — YAML schema (`Suite`/`Case` dataclasses), `load_suite()` parser, `SuiteValidationError`, unit tests
 - **M3** ✓ — LLM runner (Anthropic + OpenAI), all three scorers, JSON result writer, `eval` wired end-to-end
-- **M4** — `diff` subcommand, regression detection, Rich terminal table output
-- **M5** — configurable thresholds, CI exit codes
+- **M4** ✓ — Rich terminal table output, CI exit codes, `list` subcommand, `diff` stub
+- **M5** — `diff` subcommand, regression detection
 - **M6** — example suites, full test coverage, PyPI release
 
 ## License
