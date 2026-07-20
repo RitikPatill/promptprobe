@@ -1,0 +1,34 @@
+{
+  "suite": "basic-qa",
+  "timestamp": "2025-01-15T11:00:00",
+  "model": "claude-haiku-4-5-20251001",
+  "pass_count": 2,
+  "total": 3,
+  "score_pct": 66.7,
+  "cases": [
+    {
+      "case_id": "case_1",
+      "user": "Who created Python?",
+      "expected": "Guido van Rossum",
+      "response": "Python was invented by the Python Software Foundation.",
+      "passed": false,
+      "score_detail": "missing: Guido van Rossum"
+    },
+    {
+      "case_id": "case_2",
+      "user": "What is the boiling point of water?",
+      "expected": "100",
+      "response": "Water boils at 100\u00b0C.",
+      "passed": true,
+      "score_detail": "all keywords present"
+    },
+    {
+      "case_id": "case_3",
+      "user": "How many planets?",
+      "expected": "8,eight",
+      "response": "There are 8 planets in our solar system.",
+      "passed": true,
+      "score_detail": "all keywords present"
+    }
+  ]
+}

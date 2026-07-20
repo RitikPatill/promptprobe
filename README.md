@@ -1,153 +1,107 @@
-# PromptProbe
+# PromptProbe — LLM Prompt Evaluation CLI
 
-LLM prompt regression testing — define test suites in YAML, run them against Claude or GPT, catch regressions before they reach production.
+> A local CLI that runs YAML-defined prompt test suites against Claude/GPT and detects regressions across versions.
 
-## What works (M5)
+<!-- TODO: replace with a 5-10 second demo gif. Record with ScreenToGif on
+     Windows or peek on macOS. Save to docs/demo.gif and update path here. -->
+![demo](docs/demo.gif)
 
-- `promptprobe diff run_a.json run_b.json` reads two JSON report files and prints a colour-coded Rich table: regressions in red (`PASS→FAIL`), fixes in green (`FAIL→PASS`), unchanged cases dimmed
-- `diff` exits with code 1 if any regressions are found, 0 if only fixes or no changes — CI-friendly
-- Two ready-to-run example suites under `examples/`:
-  - `examples/qa_suite.yaml` — factual Q&A with `contains` scorer, runs immediately after install
-  - `examples/summarisation_suite.yaml` — summarisation quality with `llm_judge` scorer
-- 8 new unit tests in `tests/test_differ.py` covering all flip combinations and edge cases
-- 3 new CLI diff tests in `tests/test_cli.py` using real JSON fixture files (no mocking)
+## What it is
 
-## What works (M4)
+PromptProbe is a lightweight, local-first CLI for regression-testing LLM prompts. You define test suites in plain YAML — each suite specifies a system prompt, a list of input/expected-output pairs, and a scorer. Running `promptprobe eval` produces a coloured terminal table and a JSON artefact you can diff in CI.
 
-- Rich terminal table output for `eval`: per-case rows with green `PASS` / red `FAIL` chips, truncated user/expected/response columns, and a bold summary line showing score percentage
-- `eval` exits with code 0 when all cases pass, 1 when any fail — CI-friendly
-- `list` subcommand prints sorted JSON filenames from the results directory; exits 1 if the directory doesn't exist
-- 7 new CLI tests in `tests/test_cli.py` using `typer.testing.CliRunner` with mocked LLM calls
+It is intentionally thin: no server, no database, no UI. It installs as a dev dependency into any Python project and slots into a standard CI pipeline with a single workflow step.
 
-## What works (M3)
-
-- `LLMRunner` dispatches to Anthropic (`claude*`) or OpenAI (`gpt*`) based on model name prefix
-- Three scorers fully implemented and unit-tested (no real API calls in tests):
-  - `exact` — case-insensitive full-string match
-  - `contains` — all comma-separated keywords must appear in the response
-  - `llm_judge` — secondary Claude call rates 1–5 against a rubric; pass if ≥ 3
-- `write_report()` saves `results/run_<timestamp>.json` with suite summary and per-case details
-- `promptprobe eval <suite.yaml>` now calls a real LLM, scores each case, writes a JSON report, and prints a summary
-- 12 unit tests across `test_scorers.py` and `test_runner.py`; all pass with mocked LLM clients
-
-## What works (M2)
-
-- YAML test-suite schema defined with `Suite` and `Case` dataclasses in `src/promptprobe/schema.py`
-- `load_suite(path)` parses and validates YAML files with clear error messages for every invalid state
-- Three scorers recognised: `exact`, `contains`, `llm_judge` — validation enforced at load time
-- `SuiteValidationError` raised with human-readable messages pointing to the exact field
-- `temperature` defaults to `0.0`; case `id` is auto-assigned as `case_{n}` when omitted
-- Test suite in `tests/test_schema.py` covers happy path and all major error conditions (no network calls)
-- `pytest==8.2.2` added to `requirements.txt`
-
-## What works (M1)
-
-- Python package scaffold under `src/promptprobe/` with `pyproject.toml` entry point
-- `promptprobe` CLI is installable and responds to `--help`
-- Three subcommands registered: `eval`, `diff`, `list` — all currently print "not implemented yet"
-- Dependencies declared and pinned in `requirements.txt` (Typer, Rich, anthropic, openai, PyYAML)
-- MIT license and `.gitignore` in place
-
-Everything below the horizontal line describes the planned interface. Sections marked `<!-- TODO -->` require implementation before they are accurate.
-
----
-
-## What is PromptProbe
-
-PromptProbe is a lightweight, local-first CLI tool for evaluating and regression-testing LLM prompts. You define test suites in plain YAML — each suite contains a system prompt, a list of input/expected-output pairs, and a scorer. Run `promptprobe eval my_suite.yaml` and get a rich terminal report plus a JSON artefact you can diff in CI. Every team shipping LLM features eventually writes ad-hoc scripts to check whether a new system prompt is "better" than the old one; PromptProbe formalises that loop into a repeatable, versionable workflow with no server, no database, and no UI.
-
-## Installation
+## Quickstart
 
 ```bash
+git clone https://github.com/RitikPatill/promptprobe.git
+cd promptprobe
 pip install -e .
-```
 
-Run from the repo root. Requires Python 3.10+.
+# Set your API key(s)
+export ANTHROPIC_API_KEY=sk-ant-...   # required for Claude models and llm_judge scorer
+export OPENAI_API_KEY=sk-...          # optional, for GPT models
 
-## Quick start
-
-Two example suites ship in `examples/` so you can run the tool immediately after install.
-
-Run the factual Q&A suite (uses `contains` scorer, no rubric needed):
-
-```bash
+# Run the bundled example suite
 promptprobe eval examples/qa_suite.yaml
+
+# Compare two result files to detect regressions
+promptprobe diff demo/run_a.json demo/run_b.json
 ```
 
-Run the summarisation suite (uses `llm_judge` scorer — requires `ANTHROPIC_API_KEY`):
+## Usage
 
-```bash
-promptprobe eval examples/summarisation_suite.yaml
+**`promptprobe eval <suite.yaml>`** — runs a suite against the configured model, prints a per-case pass/fail table, and writes a timestamped JSON report to `results/`. Exits `0` when all cases pass, `1` when any fail.
+
+**`promptprobe diff <run_a.json> <run_b.json>`** — compares two result files. Regressions (PASS→FAIL) are printed in red, fixes (FAIL→PASS) in green. Exits `1` on any regression, making it a natural CI gate.
+
+**`promptprobe list [results_dir]`** — lists JSON result files in a directory (default: `results/`).
+
+Suites are plain YAML. The minimal fields are `name`, `system_prompt`, `scorer`, and `cases`:
+
+```yaml
+name: basic-qa
+model: claude-haiku-4-5-20251001
+system_prompt: "You are a concise factual assistant."
+scorer: contains
+cases:
+  - user: "Who created Python?"
+    expected: "Guido van Rossum"
+  - user: "What is the boiling point of water?"
+    expected: "100"
 ```
 
-Compare two result files to detect regressions between prompt versions:
-
-```bash
-promptprobe diff results/run_<old>.json results/run_<new>.json
-```
-
-`diff` exits with code 1 if any regressions are found, 0 otherwise — safe to use in CI.
-
-## CLI reference
-
-| Subcommand | Arguments | Description |
-|---|---|---|
-| `eval` | `suite` (path to YAML) | Run a test suite against an LLM and print results |
-| `diff` | `run_a`, `run_b` (JSON paths) | Compare two result files and show regressions |
-| `list` | `results_dir` (default: `results/`) | List saved result JSON files |
-
-<!-- TODO: add --model, --output, --threshold flags once implemented -->
-
-## Scoring
-
-- **`exact`** — Case-insensitive full-string match between the LLM response and the expected value.
-- **`contains`** — All comma-separated tokens in `expected` must appear in the response (case-insensitive). E.g. `expected: "bonjour, monde"` checks for both words.
-- **`llm_judge`** — A secondary Claude call rates the response 1–5 against a rubric; score ≥ 3 is a pass. Set `scorer: llm_judge` and write a natural-language rubric in each `expected` field.
-
-## CI integration
-
-Every `promptprobe eval` run writes a timestamped JSON artefact to `results/run_<timestamp>.json`. Store these as CI artefacts and use `promptprobe diff run_a.json run_b.json` to detect which cases flipped between pass and fail across prompt versions. The `results/` directory is excluded from version control by default.
+Three scorers are available: `exact` (case-insensitive full-string match), `contains` (all comma-separated keywords present), and `llm_judge` (a secondary Claude call rates the response 1-5 against a rubric; pass threshold is 3).
 
 ## Architecture
 
 ```
+┌─────────────────────────────────────────────────┐
+│                   PromptProbe                   │
+│                                                 │
+│  YAML Suite ──► Parser/Schema ──► LLM Runner   │
+│                                  (Anthropic /  │
+│                                   OpenAI)      │
+│                                      │         │
+│                                   Scorer       │
+│                            (exact / contains / │
+│                              llm_judge)        │
+│                                      │         │
+│                          JSON Report + Rich UI  │
+│                          results/run_<ts>.json  │
+│                                      │         │
+│                          promptprobe diff       │
+│                          regression detection   │
+└─────────────────────────────────────────────────┘
+```
+
+## Project structure
+
+```
 promptprobe/
-├── src/
-│   └── promptprobe/
-│       ├── __init__.py     # package version
-│       ├── __main__.py     # python -m promptprobe entry point
-│       ├── cli.py          # Typer app — eval / diff / list subcommands
-│       ├── schema.py       # Suite/Case dataclasses + load_suite() + SuiteValidationError
-│       ├── runner.py       # LLMRunner — dispatches to Anthropic or OpenAI, returns RunResult list
-│       ├── scorers.py      # score_exact, score_contains, score_llm_judge
-│       ├── report.py       # write_report() — saves results/run_<timestamp>.json
-│       └── differ.py       # load_report() + compare_reports() — diff logic for promptprobe diff
-├── tests/
-│   ├── __init__.py
-│   ├── test_schema.py      # unit tests for schema loader (no network calls)
-│   ├── test_scorers.py     # unit tests for all three scorers (mocked LLM)
-│   ├── test_runner.py      # dispatch and run() integration tests (mocked LLM)
-│   ├── test_cli.py         # CLI integration tests using typer.testing.CliRunner
-│   ├── test_differ.py      # unit tests for compare_reports() — all flip combinations
-│   └── fixtures/           # YAML fixtures for tests
-├── examples/
-│   ├── qa_suite.yaml           # factual Q&A with contains scorer — runs immediately
-│   └── summarisation_suite.yaml # summarisation quality with llm_judge scorer
-├── pyproject.toml          # build config and dependency declarations
-├── requirements.txt        # pinned dependencies (includes pytest)
-├── LICENSE                 # MIT
-└── .gitignore
+├── src/promptprobe/   # core library: cli, schema, runner, scorers, report, differ
+├── tests/             # 53 unit + integration tests (all mocked, no live API calls)
+├── examples/          # sample YAML suites (qa_suite, summarisation_suite)
+├── demo/              # pre-staged fixture JSON files and VHS tape script
+└── pyproject.toml     # package metadata and dependencies
 ```
 
 ## Roadmap
 
-- **M1** ✓ — package scaffold, CLI entry point, subcommand stubs
-- **M2** ✓ — YAML schema (`Suite`/`Case` dataclasses), `load_suite()` parser, `SuiteValidationError`, unit tests
-- **M3** ✓ — LLM runner (Anthropic + OpenAI), all three scorers, JSON result writer, `eval` wired end-to-end
-- **M4** ✓ — Rich terminal table output, CI exit codes, `list` subcommand, `diff` stub
-- **M5** ✓ — `diff` subcommand, regression detection, example suites
-- **M6** — full test coverage, PyPI release
+- [ ] Parallel case execution to reduce wall-clock time on large suites
+- [ ] `promptprobe watch` — re-run a suite on file change during development
+- [ ] HTML report export for sharing results outside the terminal
+- [ ] Support for multi-turn conversation test cases
+- [ ] PyPI release and `pipx install promptprobe` install path
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+Built autonomously by [autodev](https://github.com/RitikPatill/autodev),
+a multi-agent orchestrator I designed. Each commit in this repo was
+authored by me; the implementation work was performed by Sonnet under
+the orchestrator's control. Read the orchestrator's README to see how.
