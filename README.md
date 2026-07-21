@@ -1,5 +1,9 @@
 # PromptProbe — LLM Prompt Evaluation CLI
 
+
+> **Video walkthrough:** https://youtu.be/_NoOoZDBa8M
+> **60-second overview:** https://youtu.be/CgDY2Py8fWQ
+
 > A local CLI that runs YAML-defined prompt test suites against Claude/GPT and detects regressions across versions.
 
 <!-- TODO: replace with a 5-10 second demo gif. Record with ScreenToGif on
